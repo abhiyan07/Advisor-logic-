@@ -1,9 +1,9 @@
 /**
  * Scene 4 — AI Advisor (18s / 540 frames)
  *
- * Shows AI chat interface. A message types in character-by-character,
- * the AI response appears line-by-line. The context panel on the right
- * populates with university cards one at a time.
+ * Shows the real AI Advisor screenshots with animated overlays.
+ * Phase 1 (0–240): advisor-home screenshot with animated prompt chips pulsing
+ * Phase 2 (240–540): advisor-chat screenshot with a highlight sweep over the AI response
  *
  * VO: "Your AI advisor researches in real time. Ask anything — compare programs,
  *      explore your chances, find funding. It thinks through your profile and
@@ -21,24 +21,18 @@ import {
 } from 'remotion';
 import {BRAND} from '../constants';
 
-const USER_MESSAGE = 'I need to find universities that match my needs and preferences';
-
-const AI_LINES = [
-  "ok, let's do this right. I need a few more things to match",
-  'you properly, because "fits your needs" is really specific',
-  'to your actual profile.',
-  '',
-  "first: what's your GPA or percentage from your bachelor's?",
-  'second: do you have IELTS or any English test done?',
-  "third: when are you trying to start? like September 2025?",
-  'answer those and I\'ll pull you a real shortlist.',
+const PROMPTS = [
+  "Research CMU's MS in Computer Science program",
+  'Find Stanford CS professors working on multimodal AI',
+  'Find scholarships I qualify for as a Nepali CS student',
+  'Compare CMU, Stanford, and UIUC for Computer Science',
 ];
 
 const CONTEXT_UNIS = [
-  {abbr: 'LSE', color: '#3B5BDB', name: 'LSE', detail: 'Rolling admissions'},
-  {abbr: 'UOA', color: '#7048E8', name: 'UOA', detail: 'September 30'},
-  {abbr: 'HE', color: '#2B8A3E', name: 'HERT', detail: 'July 12'},
-  {abbr: 'CM', color: '#9C4221', name: 'CM', detail: 'December 12'},
+  {abbr: 'L', color: '#3B5BDB', name: 'LSE', detail: 'Rolling admissions'},
+  {abbr: 'B', color: '#E8952A', name: 'BANG', detail: 'June 30'},
+  {abbr: 'U', color: '#7048E8', name: 'UOA', detail: 'September 30'},
+  {abbr: 'H', color: '#2B8A3E', name: 'HERT', detail: 'July 12'},
 ];
 
 export const Scene4AIAdvisor: React.FC = () => {
@@ -51,564 +45,340 @@ export const Scene4AIAdvisor: React.FC = () => {
     extrapolateRight: 'clamp',
   });
 
-  // --- User message typewriter ---
-  // Typing starts at frame 40, ~60 chars / 90 frames
-  const charsVisible = Math.floor(
-    interpolate(frame, [40, 130], [0, USER_MESSAGE.length], {
+  // Phase transition: home → chat at frame 240
+  const PHASE_SWITCH = 240;
+  const homeOpacity =
+    interpolate(frame, [0, 20], [0, 1], {extrapolateRight: 'clamp'}) *
+    interpolate(frame, [PHASE_SWITCH - 20, PHASE_SWITCH], [1, 0], {
       extrapolateLeft: 'clamp',
       extrapolateRight: 'clamp',
-    })
-  );
-  const typedMessage = USER_MESSAGE.slice(0, charsVisible);
-  const showCursor = frame >= 40 && frame < 140;
-
-  // User bubble fade in after typing completes
-  const userBubbleOpacity = interpolate(frame, [135, 155], [0, 1], {
+    });
+  const chatOpacity = interpolate(frame, [PHASE_SWITCH, PHASE_SWITCH + 25], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   });
 
-  // --- AI thinking indicator ---
-  const thinkingOpacity =
-    interpolate(frame, [155, 170], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}) *
-    interpolate(frame, [195, 210], [1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+  // Subtle ken burns on both screens
+  const kenBurnsHome = interpolate(frame, [0, PHASE_SWITCH], [1, 1.04], {
+    extrapolateRight: 'clamp',
+  });
+  const kenBurnsChat = interpolate(frame, [PHASE_SWITCH, 540], [1, 1.04], {
+    extrapolateRight: 'clamp',
+  });
 
-  // --- AI response lines appear one by one ---
-  const AI_LINES_START = 210;
-  const AI_LINE_INTERVAL = 28;
+  // VO label: appears at frame 30, exits at frame 220
+  const labelIn = interpolate(frame, [30, 55], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+  const labelOut = interpolate(frame, [190, 215], [1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
 
-  // --- Context panel university cards ---
-  const CTX_START = 320;
-  const CTX_INTERVAL = 50;
+  // "Research live" badge — phase 2
+  const badgeOpacity = interpolate(frame, [PHASE_SWITCH + 30, PHASE_SWITCH + 55], [0, 1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+
+  // Context panel cards animate in during phase 1
+  const CTX_START = 60;
+  const CTX_INTERVAL = 40;
+
+  // Prompt chip highlight — cycles through all 4 prompts
+  const activePrompt = Math.floor(
+    interpolate(frame, [20, 220], [0, 4], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'})
+  ) % 4;
+
+  // Phase 2: highlight sweep across AI response text
+  const sweepProgress = interpolate(frame, [PHASE_SWITCH + 40, PHASE_SWITCH + 200], [0, 1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
 
   return (
     <AbsoluteFill
       style={{
-        backgroundColor: BRAND.cream,
+        backgroundColor: BRAND.darkBg,
         opacity: sceneIn * sceneOut,
-        display: 'flex',
-        flexDirection: 'row',
       }}
     >
-      {/* Sidebar */}
-      <Sidebar frame={frame} fps={fps} />
-
-      {/* Main chat area */}
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          backgroundColor: BRAND.cream,
-          height: '100%',
-          overflow: 'hidden',
-          position: 'relative',
-        }}
-      >
-        {/* Top bar */}
-        <div
-          style={{
-            height: 56,
-            borderBottom: `1px solid ${BRAND.border}`,
-            display: 'flex',
-            alignItems: 'center',
-            padding: '0 32px',
-            gap: 8,
-            backgroundColor: BRAND.cream,
-          }}
-        >
-          <span style={{fontFamily: 'Inter, sans-serif', fontSize: 13, color: BRAND.grayMid}}>Workspace</span>
-          <span style={{color: BRAND.grayLight}}>/</span>
-          <span style={{fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 600, color: BRAND.offBlack}}>AI Advisor</span>
+      {/* ══ PHASE 1: Advisor home screenshot ══ */}
+      <AbsoluteFill style={{opacity: homeOpacity}}>
+        <div style={{position: 'absolute', inset: 0, overflow: 'hidden'}}>
+          <Img
+            src={staticFile('screenshots/04-advisor-home.png')}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              objectPosition: 'top center',
+              transform: `scale(${kenBurnsHome})`,
+              transformOrigin: 'center center',
+            }}
+          />
         </div>
 
-        {/* Messages */}
-        <div style={{flex: 1, padding: '40px 48px', overflowY: 'hidden'}}>
-          {/* Header */}
-          <div style={{marginBottom: 40}}>
-            <h1
-              style={{
-                fontFamily: '"EB Garamond", Georgia, serif',
-                fontSize: 40,
-                fontWeight: 400,
-                color: BRAND.offBlack,
-                margin: 0,
-              }}
-            >
-              Ask <em style={{color: BRAND.rust}}>anything</em> about your applications
-            </h1>
-            <p
-              style={{
-                fontFamily: 'Inter, sans-serif',
-                fontSize: 14,
-                color: BRAND.grayMid,
-                margin: '6px 0 0',
-              }}
-            >
-              Vidhya researches programs, finds professors, and turns plans into tasks.
-            </p>
-          </div>
+        {/* Subtle dark vignette so overlays read clearly */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'radial-gradient(ellipse at center, transparent 50%, rgba(26,23,20,0.25) 100%)',
+          }}
+        />
 
-          {/* Vidhya initial greeting */}
-          <AdvisorMessage
-            lines={["hey, I'm Vidhya. ask me anything — find a program, professors,", "or get help drafting an outreach email. I'll research live and", "turn answers into tasks in your workspace."]}
-            startFrame={5}
-            fps={fps}
-            frame={frame}
-          />
-
-          {/* Typing input area */}
-          {frame >= 35 && frame < 140 && (
-            <div
-              style={{
-                marginTop: 32,
-                padding: '14px 20px',
-                backgroundColor: BRAND.cardBg,
-                borderRadius: 10,
-                border: `1px solid ${BRAND.border}`,
-                fontFamily: 'Inter, sans-serif',
-                fontSize: 15,
-                color: BRAND.offBlack,
-                maxWidth: 640,
-              }}
-            >
-              {typedMessage}
-              {showCursor && (
-                <span
-                  style={{
-                    display: 'inline-block',
-                    width: 2,
-                    height: 16,
-                    backgroundColor: BRAND.rust,
-                    marginLeft: 1,
-                    verticalAlign: 'middle',
-                    opacity: Math.sin(frame * 0.3) > 0 ? 1 : 0,
-                  }}
-                />
-              )}
-            </div>
-          )}
-
-          {/* User bubble (after send) */}
-          {frame >= 135 && (
-            <div
-              style={{
-                marginTop: 32,
-                display: 'flex',
-                justifyContent: 'flex-end',
-                opacity: userBubbleOpacity,
-              }}
-            >
+        {/* Animated prompt chip highlight overlay */}
+        <div
+          style={{
+            position: 'absolute',
+            // These pixel coords map to where the 4 prompt chips sit in the screenshot
+            // Approximate position — adjust if screenshot dimensions differ
+            top: '42%',
+            left: '18%',
+            width: '62%',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+            pointerEvents: 'none',
+          }}
+        >
+          {PROMPTS.map((prompt, i) => {
+            const row = Math.floor(i / 2);
+            const col = i % 2;
+            const isActive = i === activePrompt;
+            const chipOpacity = interpolate(
+              frame,
+              [20 + i * 12, 40 + i * 12],
+              [0, 1],
+              {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}
+            );
+            return (
               <div
+                key={prompt}
                 style={{
-                  backgroundColor: BRAND.offBlack,
-                  color: BRAND.cream,
-                  borderRadius: '12px 12px 2px 12px',
-                  padding: '12px 18px',
-                  fontFamily: 'Inter, sans-serif',
-                  fontSize: 14,
-                  maxWidth: 480,
+                  display: i % 2 === 0 ? 'flex' : 'none',
+                  gap: 10,
                 }}
               >
-                {USER_MESSAGE}
+                {[i, i + 1].filter((idx) => idx < PROMPTS.length).map((idx) => {
+                  const chipActive = idx === activePrompt;
+                  const chipFade = interpolate(
+                    frame,
+                    [20 + idx * 12, 40 + idx * 12],
+                    [0, 1],
+                    {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}
+                  );
+                  return (
+                    <div
+                      key={idx}
+                      style={{
+                        flex: 1,
+                        padding: '10px 14px',
+                        borderRadius: 8,
+                        border: `1px solid ${chipActive ? BRAND.rust : 'rgba(212,207,200,0.5)'}`,
+                        backgroundColor: chipActive
+                          ? 'rgba(192,98,58,0.12)'
+                          : 'rgba(245,240,234,0.06)',
+                        fontFamily: 'Inter, sans-serif',
+                        fontSize: 12,
+                        color: chipActive ? BRAND.rust : 'rgba(42,36,32,0.7)',
+                        opacity: chipFade,
+                        transition: 'border-color 0.3s, background-color 0.3s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                      }}
+                    >
+                      <span style={{opacity: 0.5, fontSize: 10}}>✦</span>
+                      {PROMPTS[idx]}
+                    </div>
+                  );
+                })}
               </div>
-            </div>
-          )}
-
-          {/* Thinking indicator */}
-          {thinkingOpacity > 0.01 && (
-            <div
-              style={{
-                marginTop: 24,
-                display: 'flex',
-                gap: 5,
-                opacity: thinkingOpacity,
-              }}
-            >
-              {[0, 1, 2].map((i) => (
-                <div
-                  key={i}
-                  style={{
-                    width: 7,
-                    height: 7,
-                    borderRadius: '50%',
-                    backgroundColor: BRAND.grayMid,
-                    opacity: 0.5 + 0.5 * Math.sin((frame - i * 8) * 0.25),
-                  }}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* AI response lines */}
-          {frame >= AI_LINES_START && (
-            <AdvisorMessage
-              lines={AI_LINES}
-              startFrame={AI_LINES_START}
-              fps={fps}
-              frame={frame}
-              lineInterval={AI_LINE_INTERVAL}
-            />
-          )}
+            );
+          })}
         </div>
 
-        {/* Input bar at bottom */}
+        {/* Context panel — animate university cards in */}
         <div
           style={{
-            height: 80,
-            borderTop: `1px solid ${BRAND.border}`,
+            position: 'absolute',
+            top: '10%',
+            right: '1%',
+            width: '15%',
             display: 'flex',
-            alignItems: 'center',
-            padding: '0 32px',
-            gap: 12,
-            backgroundColor: BRAND.cream,
+            flexDirection: 'column',
+            gap: 8,
           }}
         >
-          <div
-            style={{
-              flex: 1,
-              height: 44,
-              borderRadius: 10,
-              border: `1px solid ${BRAND.border}`,
-              backgroundColor: BRAND.cardBg,
-              display: 'flex',
-              alignItems: 'center',
-              padding: '0 16px',
-              fontFamily: 'Inter, sans-serif',
-              fontSize: 14,
-              color: BRAND.grayMid,
-            }}
-          >
-            Ask about a program, draft an email, or describe what you need...
-          </div>
-          {/* Live research + Extended thinking pills */}
-          <div
-            style={{
-              display: 'flex',
-              gap: 8,
-            }}
-          >
-            <Pill label="Live research" active />
-            <Pill label="Extended thinking" active={false} />
-          </div>
-        </div>
-      </div>
-
-      {/* Context panel (right) */}
-      <div
-        style={{
-          width: 280,
-          borderLeft: `1px solid ${BRAND.border}`,
-          backgroundColor: BRAND.cream,
-          padding: '24px 20px',
-          boxSizing: 'border-box',
-        }}
-      >
-        <div
-          style={{
-            fontFamily: 'Inter, sans-serif',
-            fontSize: 11,
-            letterSpacing: '0.12em',
-            textTransform: 'uppercase',
-            color: BRAND.grayMid,
-            marginBottom: 20,
-          }}
-        >
-          CONTEXT{' '}
-          <span
-            style={{
-              backgroundColor: BRAND.rust,
-              color: BRAND.white,
-              borderRadius: '50%',
-              width: 18,
-              height: 18,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 10,
-              marginLeft: 6,
-            }}
-          >
-            {Math.min(
-              4,
-              Math.floor(
-                interpolate(frame, [CTX_START, CTX_START + CTX_INTERVAL * 4], [0, 4], {
-                  extrapolateLeft: 'clamp',
-                  extrapolateRight: 'clamp',
-                })
-              )
-            )}
-          </span>
-        </div>
-
-        {CONTEXT_UNIS.map((uni, i) => {
-          const cardOpacity = interpolate(
-            frame,
-            [CTX_START + i * CTX_INTERVAL, CTX_START + i * CTX_INTERVAL + 25],
-            [0, 1],
-            {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}
-          );
-          const cardY = interpolate(
-            frame,
-            [CTX_START + i * CTX_INTERVAL, CTX_START + i * CTX_INTERVAL + 25],
-            [16, 0],
-            {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}
-          );
-
-          return (
-            <div
-              key={uni.name}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                marginBottom: 16,
-                opacity: cardOpacity,
-                transform: `translateY(${cardY}px)`,
-              }}
-            >
+          {CONTEXT_UNIS.map((uni, i) => {
+            const cardOpacity = interpolate(
+              frame,
+              [CTX_START + i * CTX_INTERVAL, CTX_START + i * CTX_INTERVAL + 20],
+              [0, 1],
+              {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}
+            );
+            const cardY = interpolate(
+              frame,
+              [CTX_START + i * CTX_INTERVAL, CTX_START + i * CTX_INTERVAL + 20],
+              [12, 0],
+              {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}
+            );
+            return (
               <div
+                key={uni.name}
                 style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 8,
-                  backgroundColor: uni.color,
+                  opacity: cardOpacity,
+                  transform: `translateY(${cardY}px)`,
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  fontFamily: 'Inter, sans-serif',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: BRAND.white,
-                  flexShrink: 0,
+                  gap: 8,
+                  backgroundColor: 'rgba(245,240,234,0.92)',
+                  borderRadius: 8,
+                  padding: '6px 10px',
                 }}
               >
-                {uni.abbr}
-              </div>
-              <div>
                 <div
-                  style={{fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 600, color: BRAND.offBlack}}
+                  style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 5,
+                    backgroundColor: uni.color,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: 9,
+                    fontWeight: 700,
+                    color: '#fff',
+                    flexShrink: 0,
+                  }}
                 >
-                  {uni.name}
+                  {uni.abbr}
                 </div>
-                <div style={{fontFamily: 'Inter, sans-serif', fontSize: 12, color: BRAND.grayMid}}>
-                  researching · {uni.detail}
+                <div>
+                  <div style={{fontFamily: 'Inter, sans-serif', fontSize: 11, fontWeight: 600, color: BRAND.offBlack}}>{uni.name}</div>
+                  <div style={{fontFamily: 'Inter, sans-serif', fontSize: 9, color: BRAND.grayMid}}>researching · {uni.detail}</div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+
+        {/* Phase 1 label */}
+        <BottomLabel
+          text="Live research · Extended thinking"
+          opacity={labelIn * labelOut}
+        />
+      </AbsoluteFill>
+
+      {/* ══ PHASE 2: Advisor chat screenshot ══ */}
+      <AbsoluteFill style={{opacity: chatOpacity}}>
+        <div style={{position: 'absolute', inset: 0, overflow: 'hidden'}}>
+          <Img
+            src={staticFile('screenshots/05-advisor-chat.png')}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              objectPosition: 'top center',
+              transform: `scale(${kenBurnsChat})`,
+              transformOrigin: 'center center',
+            }}
+          />
+        </div>
+
+        {/* Highlight sweep — a warm amber wash that sweeps left→right over the AI response */}
+        <div
+          style={{
+            position: 'absolute',
+            // Approx bounds of the AI response text block in the screenshot
+            top: '28%',
+            left: '18%',
+            width: `${sweepProgress * 62}%`,
+            height: '45%',
+            background: 'linear-gradient(to right, rgba(192,98,58,0.08) 0%, rgba(192,98,58,0.04) 80%, transparent 100%)',
+            borderRadius: 8,
+            pointerEvents: 'none',
+            transition: 'width 0.1s linear',
+          }}
+        />
+
+        {/* "Researching live" badge */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 80,
+            right: 320,
+            opacity: badgeOpacity,
+          }}
+        >
+          <LiveBadge />
+        </div>
+
+        {/* Phase 2 label */}
+        <BottomLabel
+          text="Turns every answer into an action"
+          opacity={
+            interpolate(frame, [PHASE_SWITCH + 50, PHASE_SWITCH + 75], [0, 1], {
+              extrapolateLeft: 'clamp',
+              extrapolateRight: 'clamp',
+            }) * sceneOut
+          }
+        />
+      </AbsoluteFill>
     </AbsoluteFill>
   );
 };
 
-// ---- Sub-components ----
+const BottomLabel: React.FC<{text: string; opacity: number}> = ({text, opacity}) => (
+  <div
+    style={{
+      position: 'absolute',
+      bottom: 44,
+      left: '50%',
+      transform: 'translateX(-50%)',
+      opacity,
+      backgroundColor: 'rgba(26,23,20,0.78)',
+      borderRadius: 20,
+      padding: '8px 22px',
+      fontFamily: 'Inter, sans-serif',
+      fontSize: 14,
+      color: BRAND.cream,
+      letterSpacing: '0.04em',
+      whiteSpace: 'nowrap',
+    }}
+  >
+    {text}
+  </div>
+);
 
-const Sidebar: React.FC<{frame: number; fps: number}> = ({frame, fps}) => {
-  const enter = spring({fps, frame, config: {damping: 18}, durationInFrames: 30});
-  const x = interpolate(enter, [0, 1], [-60, 0]);
-
-  const navItems = [
-    {label: 'Dashboard', icon: '⊟', active: false},
-    {label: 'AI Advisor', icon: '✦', active: true, badge: true},
-    {label: 'Application Board', icon: '⊞', active: false, count: 4},
-    {label: 'Task Center', icon: '✓', active: false, count: 4},
-    {label: 'Scholarships', icon: '⚖', active: false},
-    {label: 'Profile', icon: '◯', active: false, pct: '35%'},
-  ];
-
-  return (
-    <div
-      style={{
-        width: 230,
-        height: '100%',
-        backgroundColor: BRAND.cream,
-        borderRight: `1px solid ${BRAND.border}`,
-        padding: '20px 16px',
-        boxSizing: 'border-box',
-        transform: `translateX(${x}px)`,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 2,
-      }}
-    >
-      {/* Logo */}
-      <div
-        style={{
-          fontFamily: '"EB Garamond", Georgia, serif',
-          fontSize: 22,
-          fontWeight: 400,
-          color: BRAND.offBlack,
-          marginBottom: 24,
-          padding: '4px 8px',
-        }}
-      >
-        ✦ Vidhya
-      </div>
-
-      {/* Search */}
-      <div
-        style={{
-          height: 36,
-          borderRadius: 8,
-          border: `1px solid ${BRAND.border}`,
-          backgroundColor: BRAND.cardBg,
-          display: 'flex',
-          alignItems: 'center',
-          padding: '0 12px',
-          gap: 8,
-          marginBottom: 16,
-        }}
-      >
-        <span style={{fontSize: 12, color: BRAND.grayMid}}>⌕</span>
-        <span style={{fontFamily: 'Inter, sans-serif', fontSize: 12, color: BRAND.grayMid}}>
-          Quick search...
-        </span>
-      </div>
-
-      <div style={{fontFamily: 'Inter, sans-serif', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: BRAND.grayMid, padding: '4px 8px', marginBottom: 4}}>WORKSPACE</div>
-
-      {navItems.map((item) => (
-        <div
-          key={item.label}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            padding: '9px 10px',
-            borderRadius: 8,
-            backgroundColor: item.active ? BRAND.offBlack : 'transparent',
-            cursor: 'pointer',
-          }}
-        >
-          <span style={{fontSize: 13, color: item.active ? BRAND.cream : BRAND.grayMid}}>{item.icon}</span>
-          <span
-            style={{
-              fontFamily: 'Inter, sans-serif',
-              fontSize: 13,
-              color: item.active ? BRAND.cream : BRAND.offBlack,
-              flex: 1,
-              fontWeight: item.active ? 500 : 400,
-            }}
-          >
-            {item.label}
-          </span>
-          {item.badge && (
-            <span
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                backgroundColor: BRAND.rust,
-              }}
-            />
-          )}
-          {item.count && (
-            <span style={{fontFamily: 'Inter, sans-serif', fontSize: 11, color: BRAND.grayMid}}>
-              {item.count}
-            </span>
-          )}
-          {item.pct && (
-            <span style={{fontFamily: 'Inter, sans-serif', fontSize: 11, color: BRAND.rust}}>
-              {item.pct}
-            </span>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-};
-
-const AdvisorMessage: React.FC<{
-  lines: string[];
-  startFrame: number;
-  fps: number;
-  frame: number;
-  lineInterval?: number;
-}> = ({lines, startFrame, fps, frame, lineInterval = 20}) => {
-  return (
-    <div style={{display: 'flex', gap: 14, marginTop: 24}}>
-      <div
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: '50%',
-          backgroundColor: BRAND.rust,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontFamily: 'Inter, sans-serif',
-          fontSize: 13,
-          fontWeight: 700,
-          color: BRAND.white,
-          flexShrink: 0,
-        }}
-      >
-        S
-      </div>
-      <div style={{flex: 1}}>
-        <div
-          style={{
-            fontFamily: 'Inter, sans-serif',
-            fontSize: 10,
-            letterSpacing: '0.10em',
-            textTransform: 'uppercase',
-            color: BRAND.grayMid,
-            marginBottom: 8,
-          }}
-        >
-          VIDHYA ADVISOR
-        </div>
-        {lines.map((line, i) => {
-          const lineStart = startFrame + i * lineInterval;
-          const lineOpacity = interpolate(frame, [lineStart, lineStart + 18], [0, 1], {
-            extrapolateLeft: 'clamp',
-            extrapolateRight: 'clamp',
-          });
-          const lineY = interpolate(frame, [lineStart, lineStart + 18], [8, 0], {
-            extrapolateLeft: 'clamp',
-            extrapolateRight: 'clamp',
-          });
-          if (frame < lineStart) return null;
-          return (
-            <div
-              key={i}
-              style={{
-                fontFamily: 'Inter, sans-serif',
-                fontSize: 14,
-                color: BRAND.offBlack,
-                lineHeight: 1.7,
-                opacity: lineOpacity,
-                transform: `translateY(${lineY}px)`,
-                minHeight: line === '' ? 12 : undefined,
-              }}
-            >
-              {line}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-const Pill: React.FC<{label: string; active: boolean}> = ({label, active}) => (
+const LiveBadge: React.FC = () => (
   <div
     style={{
       display: 'flex',
       alignItems: 'center',
-      gap: 6,
-      padding: '6px 12px',
+      gap: 7,
+      backgroundColor: 'rgba(192,98,58,0.95)',
       borderRadius: 20,
-      border: `1px solid ${active ? BRAND.rust : BRAND.border}`,
-      backgroundColor: active ? 'rgba(192,98,58,0.08)' : 'transparent',
-      fontFamily: 'Inter, sans-serif',
-      fontSize: 12,
-      color: active ? BRAND.rust : BRAND.grayMid,
+      padding: '6px 14px',
+      boxShadow: '0 4px 16px rgba(192,98,58,0.40)',
     }}
   >
-    {active && <span style={{fontSize: 8}}>●</span>}
-    {label}
+    <div
+      style={{
+        width: 7,
+        height: 7,
+        borderRadius: '50%',
+        backgroundColor: '#fff',
+      }}
+    />
+    <span
+      style={{
+        fontFamily: 'Inter, sans-serif',
+        fontSize: 13,
+        fontWeight: 600,
+        color: '#fff',
+        letterSpacing: '0.03em',
+      }}
+    >
+      Researching live
+    </span>
   </div>
 );
