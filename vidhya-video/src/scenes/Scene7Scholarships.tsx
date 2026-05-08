@@ -1,8 +1,10 @@
 /**
  * Scene 7 — Scholarships (12s / 360 frames)
  *
- * AI scholarship search form fades in. "Scan with AI" button pulses.
- * Three scholarship cards animate in one by one with status badges.
+ * Phase 1 (0–160): Scholarship search form screenshot.
+ *   "Scan with AI" button pulses + field highlights animate.
+ * Phase 2 (160–360): Scholarship cards screenshot fades in.
+ *   Status badges highlight in sequence. Cards get a subtle glow sweep.
  *
  * VO: "Finding funding? Vidhya scans government, foundation, and university
  *      scholarships matched exactly to your profile. Track every application
@@ -11,45 +13,21 @@
 import React from 'react';
 import {
   AbsoluteFill,
+  Img,
   interpolate,
   spring,
+  staticFile,
   useCurrentFrame,
   useVideoConfig,
 } from 'remotion';
 import {BRAND} from '../constants';
 
-const SCHOLARSHIPS = [
-  {
-    title: 'Full tuition + stipend',
-    name: 'Chevening Scholarships',
-    org: 'UK Foreign, Commonwealth & Development Office',
-    status: 'GATHERING DOCS',
-    statusColor: '#E8952A',
-    tags: ['tuition+living+travel', 'masters', 'Nepal'],
-    date: 'November',
-    desc: 'Global scholarship program offered by the UK government to develop future leaders. Covers a one-year Master\'s degree at any UK university.',
-  },
-  {
-    title: 'Full tuition + stipend',
-    name: 'Australia Awards Scholarships',
-    org: 'Department of Foreign Affairs and Trade (DFAT)',
-    status: 'SUBMITTED',
-    statusColor: '#3B82F6',
-    tags: ['tuition+living+travel', 'masters', 'Nepal'],
-    date: 'April',
-    desc: 'Long-term awards offered by the Australian Government for professionals from Nepal to study at participating Australian universities.',
-  },
-  {
-    title: 'Up to £18,000',
-    name: 'LSE Margaret Bennett Scholarship',
-    org: 'London School of Economics and Political Science',
-    status: 'TRACKING',
-    statusColor: '#6366F1',
-    tags: ['partial', 'masters', 'Nepal', 'Global South'],
-    date: 'April',
-    desc: 'This scholarship supports female students from Africa and other developing regions to study at the LSE.',
-  },
-];
+const PHASE_SWITCH = 160;
+
+// Approximate left-edge % positions of the 3 scholarship cards in 11-scholarship-cards.png
+const CARD_X = [18, 47, 76];
+const CARD_COLORS = ['#E8952A', '#3B82F6', '#6366F1']; // gathering docs, submitted, tracking
+const CARD_LABELS = ['GATHERING DOCS', 'SUBMITTED', 'TRACKING'];
 
 export const Scene7Scholarships: React.FC = () => {
   const frame = useCurrentFrame();
@@ -61,14 +39,62 @@ export const Scene7Scholarships: React.FC = () => {
     extrapolateRight: 'clamp',
   });
 
-  // Scan button pulse (frames 60-120)
+  // Phase 1: search form
+  const formOpacity =
+    interpolate(frame, [0, 20], [0, 1], {extrapolateRight: 'clamp'}) *
+    interpolate(frame, [PHASE_SWITCH - 20, PHASE_SWITCH], [1, 0], {
+      extrapolateLeft: 'clamp',
+      extrapolateRight: 'clamp',
+    });
+
+  // Scan button pulse (frames 40–120)
   const scanPulse =
-    frame >= 60 && frame <= 120
-      ? 1 + 0.04 * Math.sin((frame - 60) * 0.35)
+    frame >= 40 && frame <= 120
+      ? 1 + 0.06 * Math.sin((frame - 40) * 0.32)
       : 1;
 
-  const CARDS_START = 90;
-  const CARD_INTERVAL = 60;
+  // Zoom on form screenshot
+  const zoom1 = interpolate(frame, [0, PHASE_SWITCH], [1.0, 1.05], {extrapolateRight: 'clamp'});
+
+  // Scroll form screen slightly to show cards below fold
+  const scroll1 = interpolate(frame, [80, PHASE_SWITCH - 10], [0, 10], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+
+  // Phase 1 label
+  const label1Opacity =
+    interpolate(frame, [50, 75], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}) *
+    interpolate(frame, [PHASE_SWITCH - 25, PHASE_SWITCH - 5], [1, 0], {
+      extrapolateLeft: 'clamp',
+      extrapolateRight: 'clamp',
+    });
+
+  // Phase 2: cards
+  const cardsOpacity = interpolate(frame, [PHASE_SWITCH, PHASE_SWITCH + 25], [0, 1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+
+  const zoom2 = interpolate(frame, [PHASE_SWITCH, 360], [1.0, 1.04], {extrapolateRight: 'clamp'});
+
+  // Active card cycles: 0 → 1 → 2 over phase 2
+  const activeCard = Math.min(
+    2,
+    Math.floor(
+      interpolate(frame, [PHASE_SWITCH + 20, PHASE_SWITCH + 160], [0, 3], {
+        extrapolateLeft: 'clamp',
+        extrapolateRight: 'clamp',
+      })
+    )
+  );
+
+  // Phase 2 label
+  const label2Opacity =
+    interpolate(frame, [PHASE_SWITCH + 60, PHASE_SWITCH + 85], [0, 1], {
+      extrapolateLeft: 'clamp',
+      extrapolateRight: 'clamp',
+    }) * sceneOut;
 
   return (
     <AbsoluteFill
@@ -78,329 +104,189 @@ export const Scene7Scholarships: React.FC = () => {
         overflow: 'hidden',
       }}
     >
-      {/* Top bar */}
-      <div
-        style={{
-          height: 56,
-          borderBottom: `1px solid ${BRAND.border}`,
-          display: 'flex',
-          alignItems: 'center',
-          padding: '0 40px',
-          gap: 8,
-          backgroundColor: BRAND.cream,
-        }}
-      >
-        <span style={{fontFamily: 'Inter, sans-serif', fontSize: 13, color: BRAND.grayMid}}>Workspace</span>
-        <span style={{color: BRAND.grayLight}}>/</span>
-        <span style={{fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 600, color: BRAND.offBlack}}>Scholarships</span>
-      </div>
+      {/* ══ PHASE 1: Scholarship search form ══ */}
+      <AbsoluteFill style={{opacity: formOpacity, overflow: 'hidden'}}>
+        <Img
+          src={staticFile('screenshots/10-scholarships.png')}
+          style={{
+            width: '100%',
+            height: `${zoom1 * 115}%`,
+            objectFit: 'cover',
+            objectPosition: 'top center',
+            transform: `translateY(-${scroll1}%)`,
+            display: 'block',
+          }}
+        />
 
-      <div style={{padding: '36px 40px', overflow: 'hidden'}}>
-        {/* Page header */}
-        <div style={{marginBottom: 8}}>
-          <div style={{fontFamily: 'Inter, sans-serif', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: BRAND.grayMid, marginBottom: 8}}>
-            FINANCIAL PLANNING
-          </div>
-          <h1
+        {/* "Scan with AI" button highlight overlay */}
+        <div
+          style={{
+            position: 'absolute',
+            // Approx position of the Scan button in the screenshot
+            top: '55%',
+            left: '15%',
+            transform: `scale(${scanPulse})`,
+            transformOrigin: 'left center',
+            opacity: interpolate(frame, [35, 55], [0, 1], {
+              extrapolateLeft: 'clamp',
+              extrapolateRight: 'clamp',
+            }),
+            pointerEvents: 'none',
+          }}
+        >
+          <div
             style={{
-              fontFamily: '"EB Garamond", Georgia, serif',
-              fontSize: 42,
-              fontWeight: 400,
-              color: BRAND.offBlack,
-              margin: '0 0 4px',
+              backgroundColor: 'rgba(192,98,58,0.95)',
+              borderRadius: 8,
+              padding: '9px 20px',
+              fontFamily: 'Inter, sans-serif',
+              fontSize: 14,
+              fontWeight: 700,
+              color: '#fff',
+              boxShadow: `0 6px 24px rgba(192,98,58,${0.3 + 0.2 * Math.sin(frame * 0.32)})`,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
             }}
           >
-            Scholarship <em style={{fontStyle: 'italic'}}>matches</em>
-          </h1>
-          <div style={{fontFamily: 'Inter, sans-serif', fontSize: 14, color: BRAND.grayMid}}>
-            8 opportunities · 0 in progress · 1 submitted
+            <span>✦</span> Scan with AI
           </div>
         </div>
 
-        {/* Search form */}
-        <SearchForm frame={frame} fps={fps} scanPulse={scanPulse} />
-
-        {/* Filter tabs */}
-        <div style={{display: 'flex', gap: 8, marginBottom: 24}}>
-          {[
-            {label: 'All (8)', active: true},
-            {label: 'Tracking (6)', active: false},
-            {label: 'Gathering docs (1)', active: false},
-            {label: 'Submitted (1)', active: false},
-          ].map((tab) => (
+        {/* Highlight rings on form fields (Nepal, Masters in Consumer Psychology) */}
+        {[
+          {top: '30%', left: '15%', width: '22%', delay: 20},
+          {top: '43%', left: '15%', width: '22%', delay: 50},
+        ].map((field, i) => {
+          const fieldOpacity = interpolate(frame, [field.delay, field.delay + 20], [0, 0.7], {
+            extrapolateLeft: 'clamp',
+            extrapolateRight: 'clamp',
+          });
+          return (
             <div
-              key={tab.label}
+              key={i}
               style={{
-                fontFamily: 'Inter, sans-serif',
-                fontSize: 13,
-                padding: '6px 14px',
-                borderRadius: 20,
-                border: `1px solid ${tab.active ? BRAND.rust : BRAND.border}`,
-                backgroundColor: tab.active ? BRAND.rust : 'transparent',
-                color: tab.active ? BRAND.white : BRAND.offBlack,
-                cursor: 'pointer',
+                position: 'absolute',
+                top: field.top,
+                left: field.left,
+                width: field.width,
+                height: '5%',
+                border: `2px solid rgba(192,98,58,${fieldOpacity})`,
+                borderRadius: 8,
+                boxShadow: `0 0 12px rgba(192,98,58,${fieldOpacity * 0.3})`,
+                pointerEvents: 'none',
+              }}
+            />
+          );
+        })}
+
+        <BottomLabel text="AI scans govt + foundation + university funds" opacity={label1Opacity} />
+      </AbsoluteFill>
+
+      {/* ══ PHASE 2: Scholarship cards ══ */}
+      <AbsoluteFill style={{opacity: cardsOpacity, overflow: 'hidden'}}>
+        <Img
+          src={staticFile('screenshots/11-scholarship-cards.png')}
+          style={{
+            width: '100%',
+            height: `${zoom2 * 108}%`,
+            objectFit: 'cover',
+            objectPosition: 'top center',
+            display: 'block',
+          }}
+        />
+
+        {/* Status badge callouts animate in over each card */}
+        {CARD_X.map((x, i) => {
+          const badgeStart = PHASE_SWITCH + 25 + i * 50;
+          const badgeOpacity = interpolate(frame, [badgeStart, badgeStart + 20], [0, 1], {
+            extrapolateLeft: 'clamp',
+            extrapolateRight: 'clamp',
+          });
+          const isActive = i === activeCard;
+          return (
+            <div
+              key={i}
+              style={{
+                position: 'absolute',
+                top: '10%',
+                left: `${x}%`,
+                transform: 'translateX(-50%)',
+                opacity: badgeOpacity * sceneOut,
+                pointerEvents: 'none',
               }}
             >
-              {tab.label}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  backgroundColor: isActive
+                    ? CARD_COLORS[i]
+                    : `${CARD_COLORS[i]}CC`,
+                  borderRadius: 20,
+                  padding: '5px 14px',
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: '#fff',
+                  letterSpacing: '0.06em',
+                  boxShadow: isActive ? `0 4px 16px ${CARD_COLORS[i]}55` : 'none',
+                  whiteSpace: 'nowrap',
+                  transform: `scale(${isActive ? 1 + 0.04 * Math.sin(frame * 0.28) : 1})`,
+                }}
+              >
+                <span style={{fontSize: 8}}>●</span>
+                {CARD_LABELS[i]}
+              </div>
             </div>
-          ))}
-        </div>
+          );
+        })}
 
-        {/* Scholarship cards */}
-        <div style={{display: 'flex', gap: 20}}>
-          {SCHOLARSHIPS.map((sch, i) => {
-            const cardEnter = spring({
-              fps,
-              frame: frame - (CARDS_START + i * CARD_INTERVAL),
-              config: {damping: 14, stiffness: 80},
-              durationInFrames: 35,
-            });
-            const cardOpacity = interpolate(cardEnter, [0, 1], [0, 1]);
-            const cardY = interpolate(cardEnter, [0, 1], [30, 0]);
+        {/* Card glow sweep */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '14%',
+            left: `${CARD_X[activeCard] - 13}%`,
+            width: '26%',
+            bottom: '8%',
+            borderRadius: 12,
+            border: `2px solid ${CARD_COLORS[activeCard]}50`,
+            boxShadow: `0 0 24px ${CARD_COLORS[activeCard]}25`,
+            pointerEvents: 'none',
+            opacity: interpolate(frame, [PHASE_SWITCH + 25, PHASE_SWITCH + 50], [0, 1], {
+              extrapolateLeft: 'clamp',
+              extrapolateRight: 'clamp',
+            }) * sceneOut,
+            transition: 'left 0.4s ease, border-color 0.4s ease',
+          }}
+        />
 
-            return (
-              <ScholarshipCard
-                key={sch.name}
-                sch={sch}
-                opacity={cardOpacity}
-                translateY={cardY}
-                frame={frame}
-                startFrame={CARDS_START + i * CARD_INTERVAL}
-              />
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Bottom label */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 28,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          opacity:
-            interpolate(frame, [280, 305], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'}) *
-            sceneOut,
-          backgroundColor: 'rgba(26,23,20,0.78)',
-          borderRadius: 20,
-          padding: '7px 20px',
-          fontFamily: 'Inter, sans-serif',
-          fontSize: 13,
-          color: BRAND.cream,
-          whiteSpace: 'nowrap',
-        }}
-      >
-        8 scholarships matched · Real-time search
-      </div>
+        <BottomLabel text="8 scholarships matched · Real-time search" opacity={label2Opacity} />
+      </AbsoluteFill>
     </AbsoluteFill>
   );
 };
 
-const SearchForm: React.FC<{frame: number; fps: number; scanPulse: number}> = ({frame, fps, scanPulse}) => {
-  const enter = spring({fps, frame: frame - 5, config: {damping: 16, stiffness: 80}, durationInFrames: 30});
-  const opacity = interpolate(enter, [0, 1], [0, 1]);
-  const y = interpolate(enter, [0, 1], [20, 0]);
-
-  return (
-    <div
-      style={{
-        backgroundColor: BRAND.white,
-        borderRadius: 12,
-        padding: '24px',
-        border: `1px solid ${BRAND.border}`,
-        marginBottom: 20,
-        opacity,
-        transform: `translateY(${y}px)`,
-      }}
-    >
-      <div style={{fontFamily: 'Inter, sans-serif', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: BRAND.grayMid, marginBottom: 16}}>
-        AI SCHOLARSHIP SEARCH
-      </div>
-      <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 16}}>
-        {[
-          {label: 'CITIZENSHIP', value: 'Nepal'},
-          {label: 'ORIGIN COUNTRY', value: 'Nepal'},
-          {label: 'STUDY LEVEL', value: 'Undergraduate'},
-        ].map((f) => (
-          <FormField key={f.label} label={f.label} value={f.value} />
-        ))}
-      </div>
-      <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 16}}>
-        {[
-          {label: 'FIELD OF STUDY', value: 'Masters in Consumer Psychology'},
-          {label: 'INTAKE TERM', value: 'e.g. Fall 2026'},
-          {label: 'FUNDING NEED', value: 'Partial OK'},
-        ].map((f) => (
-          <FormField key={f.label} label={f.label} value={f.value} />
-        ))}
-      </div>
-      <button
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '10px 20px',
-          backgroundColor: BRAND.rust,
-          color: BRAND.white,
-          border: 'none',
-          borderRadius: 8,
-          fontFamily: 'Inter, sans-serif',
-          fontSize: 14,
-          fontWeight: 600,
-          cursor: 'pointer',
-          transform: `scale(${scanPulse})`,
-        }}
-      >
-        ✦ Scan with AI
-      </button>
-    </div>
-  );
-};
-
-const FormField: React.FC<{label: string; value: string}> = ({label, value}) => (
-  <div>
-    <div style={{fontFamily: 'Inter, sans-serif', fontSize: 10, letterSpacing: '0.10em', textTransform: 'uppercase', color: BRAND.grayMid, marginBottom: 6}}>
-      {label}
-    </div>
-    <div
-      style={{
-        border: `1px solid ${BRAND.border}`,
-        borderRadius: 8,
-        padding: '8px 12px',
-        fontFamily: 'Inter, sans-serif',
-        fontSize: 14,
-        color: BRAND.offBlack,
-        backgroundColor: BRAND.cream,
-      }}
-    >
-      {value}
-    </div>
-  </div>
-);
-
-const ScholarshipCard: React.FC<{
-  sch: (typeof SCHOLARSHIPS)[0];
-  opacity: number;
-  translateY: number;
-  frame: number;
-  startFrame: number;
-}> = ({sch, opacity, translateY}) => (
+const BottomLabel: React.FC<{text: string; opacity: number}> = ({text, opacity}) => (
   <div
     style={{
-      flex: 1,
-      backgroundColor: BRAND.white,
-      borderRadius: 12,
-      padding: '20px',
-      border: `1px solid ${BRAND.border}`,
+      position: 'absolute',
+      bottom: 40,
+      left: '50%',
+      transform: 'translateX(-50%)',
       opacity,
-      transform: `translateY(${translateY}px)`,
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 10,
+      backgroundColor: 'rgba(26,23,20,0.78)',
+      borderRadius: 20,
+      padding: '8px 22px',
+      fontFamily: 'Inter, sans-serif',
+      fontSize: 14,
+      color: BRAND.cream,
+      letterSpacing: '0.03em',
+      whiteSpace: 'nowrap',
     }}
   >
-    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
-      <h3
-        style={{
-          fontFamily: '"EB Garamond", Georgia, serif',
-          fontSize: 24,
-          fontWeight: 400,
-          color: BRAND.offBlack,
-          margin: 0,
-          lineHeight: 1.2,
-        }}
-      >
-        {sch.title}
-      </h3>
-      <div
-        style={{
-          fontFamily: 'Inter, sans-serif',
-          fontSize: 11,
-          fontWeight: 600,
-          color: sch.statusColor,
-          backgroundColor: `${sch.statusColor}18`,
-          border: `1px solid ${sch.statusColor}40`,
-          borderRadius: 20,
-          padding: '3px 10px',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        ● {sch.status}
-      </div>
-    </div>
-
-    <div>
-      <div style={{fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 600, color: BRAND.offBlack}}>{sch.name}</div>
-      <div style={{fontFamily: 'Inter, sans-serif', fontSize: 12, color: BRAND.grayMid}}>{sch.org}</div>
-    </div>
-
-    <div style={{fontFamily: 'Inter, sans-serif', fontSize: 12, color: BRAND.grayMid, lineHeight: 1.5}}>
-      {sch.desc}
-    </div>
-
-    <div style={{display: 'flex', flexWrap: 'wrap', gap: 6}}>
-      {sch.tags.map((tag) => (
-        <span
-          key={tag}
-          style={{
-            fontFamily: 'Inter, sans-serif',
-            fontSize: 11,
-            color: BRAND.grayMid,
-            border: `1px solid ${BRAND.border}`,
-            borderRadius: 20,
-            padding: '2px 8px',
-          }}
-        >
-          {tag}
-        </span>
-      ))}
-    </div>
-
-    <div
-      style={{
-        marginTop: 'auto',
-        paddingTop: 12,
-        borderTop: `1px solid ${BRAND.border}`,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-      }}
-    >
-      <span style={{fontFamily: 'Inter, sans-serif', fontSize: 12, color: BRAND.grayMid}}>
-        📅 {sch.date}
-      </span>
-      <div style={{display: 'flex', gap: 8}}>
-        <button
-          style={{
-            backgroundColor: BRAND.rust,
-            color: BRAND.white,
-            border: 'none',
-            borderRadius: 6,
-            padding: '6px 14px',
-            fontFamily: 'Inter, sans-serif',
-            fontSize: 12,
-            fontWeight: 600,
-            cursor: 'pointer',
-          }}
-        >
-          Apply →
-        </button>
-        <button
-          style={{
-            backgroundColor: 'transparent',
-            color: BRAND.offBlack,
-            border: `1px solid ${BRAND.border}`,
-            borderRadius: 6,
-            padding: '6px 14px',
-            fontFamily: 'Inter, sans-serif',
-            fontSize: 12,
-            cursor: 'pointer',
-          }}
-        >
-          + Add to tasks
-        </button>
-      </div>
-    </div>
+    {text}
   </div>
 );
