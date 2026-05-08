@@ -1,0 +1,16 @@
+Place your Vidhya screenshots in this folder with these exact filenames:
+
+  01-landing.png         — Landing page (vidhya.com homepage)
+  02-onboarding.png      — Onboarding quiz Step 1 of 4
+  03-dashboard.png       — Dashboard with deadlines widget
+  04-advisor-home.png    — AI Advisor — empty state with 4 suggested prompts
+  05-advisor-chat.png    — AI Advisor — conversation in progress
+  06-app-board.png       — Application Board kanban (4 universities)
+  07-university.png      — Carnegie Mellon detail page (top / fit snapshot)
+  08-professors.png      — Professors panel with match %
+  09-email.png           — Email composer with drafted email
+  10-scholarships.png    — Scholarships search form
+  11-scholarship-cards.png — Scholarship cards (Chevening, Australia Awards, LSE)
+
+Recommended export size: 1920×1080 or 2× that (3840×2160) for retina crispness.
+Save as PNG for best quality.
