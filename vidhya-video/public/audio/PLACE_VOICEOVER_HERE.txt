@@ -1,0 +1,15 @@
+Place your recorded voiceover file here as:
+
+  voiceover.mp3    (preferred — smallest file, best quality)
+  voiceover.wav    (also works, update src in src/audio/Voiceover.tsx)
+  voiceover.m4a    (also works)
+
+Recording tips:
+  - Record in a quiet room with minimal reverb
+  - Speak at a confident, warm pace — not too slow
+  - Leave 0.5s silence at the very start before speaking
+  - Total target duration: 83–88 seconds
+  - After recording, you can fine-tune scene timings in src/constants.ts
+
+The script is in: voiceover-script.txt (same folder as this file,
+one level up at public/voiceover-script.txt)
